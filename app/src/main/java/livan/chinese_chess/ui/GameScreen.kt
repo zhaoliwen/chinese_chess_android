@@ -132,7 +132,7 @@ fun GameScreen(vm: GameViewModel = viewModel()) {
                         result = result,
                         onDismiss = vm::dismissResultUi,
                         onNewGame = { vm.newGame(playSound = true) },
-                        modifier = Modifier
+                        barModifier = Modifier
                             .align(Alignment.TopCenter)
                             .padding(top = 8.dp)
                             .fillMaxWidth(0.92f),
@@ -337,7 +337,7 @@ private fun GameResultBar(
     result: GameResult,
     onDismiss: () -> Unit,
     onNewGame: () -> Unit,
-    modifier: Modifier = Modifier,
+    barModifier: Modifier = Modifier,
 ) {
     val (title, accent) = when (result.kind) {
         GameResultKind.WIN -> "胜利" to Color(0xFF3CB371)
@@ -351,7 +351,7 @@ private fun GameResultBar(
     }
 
     Column(
-        modifier = modifier
+        modifier = barModifier
             .background(
                 Brush.verticalGradient(listOf(Color(0xF0322518), Color(0xF01A1410))),
                 RoundedCornerShape(6.dp),
@@ -360,28 +360,33 @@ private fun GameResultBar(
             .padding(horizontal = 14.dp, vertical = 10.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
             Box(
-                Modifier
+                modifier = Modifier
                     .width(3.dp)
                     .height(36.dp)
                     .background(accent, RoundedCornerShape(2.dp)),
             )
-            Spacer(Modifier.width(10.dp))
-            Column(Modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    color = accent,
-                    fontFamily = FontFamily.Serif,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 22.sp,
-                )
-                Text(
-                    text = subtitle,
-                    color = TextMuted,
-                    fontSize = 13.sp,
-                    lineHeight = 18.sp,
-                )
+            Spacer(modifier = Modifier.width(10.dp))
+            Box(modifier = Modifier.weight(1f)) {
+                Column {
+                    Text(
+                        text = title,
+                        color = accent,
+                        fontFamily = FontFamily.Serif,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 22.sp,
+                    )
+                    Text(
+                        text = subtitle,
+                        color = TextMuted,
+                        fontSize = 13.sp,
+                        lineHeight = 18.sp,
+                    )
+                }
             }
         }
         Row(
