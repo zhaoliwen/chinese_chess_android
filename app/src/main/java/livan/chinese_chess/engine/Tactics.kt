@@ -18,7 +18,7 @@ object Tactics {
 
     /** 走子上下文：boardBefore 走子前棋盘，captured 被吃子（无吃子为 [Xiangqi.EMPTY]），moveCount 已走完的总步数（含本步） */
     data class TacticContext(
-        val boardBefore: Xiangqi.Board,
+        val boardBefore: Board,
         val move: Xiangqi.Move,
         val piece: Char,
         val captured: Char,
@@ -58,7 +58,7 @@ object Tactics {
      * @param sideToMoveRed 当前应走方（刚被将军的一方）
      * @param ctx 走子上下文
      */
-    fun analyze(board: Xiangqi.Board, sideToMoveRed: Boolean, ctx: TacticContext): TacticResult? {
+    fun analyze(board: Board, sideToMoveRed: Boolean, ctx: TacticContext): TacticResult? {
         val events = mutableListOf<TacticEvent>()
 
         // 1) 开局招法（优先轻量提示，再叠加将军类）
@@ -154,7 +154,7 @@ object Tactics {
 
     // ---------- 开局 ----------
 
-    private fun detectOpening(board: Xiangqi.Board, ctx: TacticContext): TacticEvent? {
+    private fun detectOpening(board: Board, ctx: TacticContext): TacticEvent? {
         if (ctx.piece == Xiangqi.EMPTY || ctx.moveCount > 12) return null
         val move = ctx.move
         val piece = ctx.piece
@@ -254,13 +254,13 @@ object Tactics {
         return null
     }
 
-    private fun hasScreenHorses(board: Xiangqi.Board, red: Boolean): Boolean {
+    private fun hasScreenHorses(board: Board, red: Boolean): Boolean {
         val r = if (red) 7 else 2
         val n = if (red) 'N' else 'n'
         return board[r][2] == n && board[r][6] == n
     }
 
-    private fun bothCenterCannons(board: Xiangqi.Board): Boolean {
+    private fun bothCenterCannons(board: Board): Boolean {
         var redC = false
         var blackC = false
         for (r in 0 until 10) {
@@ -271,7 +271,7 @@ object Tactics {
     }
 
     /** 列手炮粗判：红黑炮各在一侧（左对左 / 右对右）且未同时占中路 */
-    private fun isOppositeCannons(board: Xiangqi.Board): Boolean {
+    private fun isOppositeCannons(board: Board): Boolean {
         if (bothCenterCannons(board)) return false
         var redLeft = false
         var redRight = false
@@ -292,13 +292,13 @@ object Tactics {
 
     // ---------- 将军 / 杀法 ----------
 
-    private fun getCheckers(board: Xiangqi.Board, matedRed: Boolean): List<Xiangqi.Attacker> {
+    private fun getCheckers(board: Board, matedRed: Boolean): List<Xiangqi.Attacker> {
         val king = Xiangqi.findKing(board, matedRed) ?: return emptyList()
         return Xiangqi.getAttackers(board, king.r, king.c, !matedRed)
     }
 
     private fun detectCheckEvent(
-        board: Xiangqi.Board,
+        board: Board,
         sideToMoveRed: Boolean,
         checkers: List<Xiangqi.Attacker>,
         ctx: TacticContext,
@@ -359,14 +359,14 @@ object Tactics {
         )
     }
 
-    private fun detectMatePattern(board: Xiangqi.Board, matedRed: Boolean, ctx: TacticContext): TacticEvent {
+    private fun detectMatePattern(board: Board, matedRed: Boolean, ctx: TacticContext): TacticEvent {
         val king = Xiangqi.findKing(board, matedRed)
             ?: return TacticEvent(id = "mate", label = "绝杀", voice = "绝杀", kind = "mate")
         val attackerRed = !matedRed
         val checkers = getCheckers(board, matedRed)
 
         class MateCheck(
-            val fn: (Xiangqi.Board, Xiangqi.Pos, Boolean, List<Xiangqi.Attacker>) -> Boolean,
+            val fn: (Board, Xiangqi.Pos, Boolean, List<Xiangqi.Attacker>) -> Boolean,
             val id: String,
             val label: String,
             val voice: String,
@@ -398,7 +398,7 @@ object Tactics {
         return TacticEvent(id = "mate", label = "绝杀", voice = "绝杀", kind = "mate")
     }
 
-    private fun detectQuietTactic(board: Xiangqi.Board, sideToMoveRed: Boolean, ctx: TacticContext): TacticEvent? {
+    private fun detectQuietTactic(board: Board, sideToMoveRed: Boolean, ctx: TacticContext): TacticEvent? {
         if (ctx.piece == Xiangqi.EMPTY) return null
         val move = ctx.move
         val piece = ctx.piece
@@ -449,7 +449,7 @@ object Tactics {
         return null
     }
 
-    private fun isFork(board: Xiangqi.Board, move: Xiangqi.Move, moverIsRed: Boolean): Boolean {
+    private fun isFork(board: Board, move: Xiangqi.Move, moverIsRed: Boolean): Boolean {
         val p = board[move.tr][move.tc]
         if (p == Xiangqi.EMPTY) return false
         val attacks = Xiangqi.generatePseudoMoves(board, move.tr, move.tc)
@@ -468,8 +468,8 @@ object Tactics {
     }
 
     private fun isDiscoveredCheck(
-        boardBefore: Xiangqi.Board,
-        boardAfter: Xiangqi.Board,
+        boardBefore: Board,
+        boardAfter: Board,
         move: Xiangqi.Move,
         sideInCheck: Boolean,
     ): Boolean {
@@ -501,7 +501,7 @@ object Tactics {
         return false
     }
 
-    private fun isIronBolt(board: Xiangqi.Board, king: Xiangqi.Pos, attackerRed: Boolean, checkers: List<Xiangqi.Attacker>): Boolean {
+    private fun isIronBolt(board: Board, king: Xiangqi.Pos, attackerRed: Boolean, checkers: List<Xiangqi.Attacker>): Boolean {
         val boltRank = king.r
         var boltRook: Xiangqi.Pos? = null
         for (c in 0 until 9) {
@@ -525,7 +525,7 @@ object Tactics {
         return false
     }
 
-    private fun isHorseCannon(board: Xiangqi.Board, king: Xiangqi.Pos, attackerRed: Boolean, checkers: List<Xiangqi.Attacker>): Boolean {
+    private fun isHorseCannon(board: Board, king: Xiangqi.Pos, attackerRed: Boolean, checkers: List<Xiangqi.Attacker>): Boolean {
         for (ch in checkers) {
             if (ch.piece.uppercaseChar() != 'C') continue
             if (ch.r != king.r && ch.c != king.c) continue
@@ -538,7 +538,7 @@ object Tactics {
         return false
     }
 
-    private fun isSmotheredPalace(board: Xiangqi.Board, king: Xiangqi.Pos, attackerRed: Boolean, checkers: List<Xiangqi.Attacker>, matedRed: Boolean): Boolean {
+    private fun isSmotheredPalace(board: Board, king: Xiangqi.Pos, attackerRed: Boolean, checkers: List<Xiangqi.Attacker>, matedRed: Boolean): Boolean {
         if (!checkers.any { ch -> ch.piece.uppercaseChar() == 'C' }) return false
         val dirs = arrayOf(intArrayOf(-1, 0), intArrayOf(1, 0), intArrayOf(0, -1), intArrayOf(0, 1))
         val ownBlock = dirs.any { d ->
@@ -554,7 +554,7 @@ object Tactics {
         return ownBlock
     }
 
-    private fun isWoCaoHorse(board: Xiangqi.Board, king: Xiangqi.Pos, attackerRed: Boolean, checkers: List<Xiangqi.Attacker>): Boolean {
+    private fun isWoCaoHorse(board: Board, king: Xiangqi.Pos, attackerRed: Boolean, checkers: List<Xiangqi.Attacker>): Boolean {
         val horses = checkers.filter { ch -> ch.piece.uppercaseChar() == 'N' }
         val forward = if (attackerRed) 1 else -1
         for (ch in horses) {
@@ -568,7 +568,7 @@ object Tactics {
     }
 
     /** 钓鱼马：马在将的侧前方「日」字位将军（偏肋道） */
-    private fun isFishingHorse(board: Xiangqi.Board, king: Xiangqi.Pos, attackerRed: Boolean, checkers: List<Xiangqi.Attacker>): Boolean {
+    private fun isFishingHorse(board: Board, king: Xiangqi.Pos, attackerRed: Boolean, checkers: List<Xiangqi.Attacker>): Boolean {
         if (isWoCaoHorse(board, king, attackerRed, checkers)) return false
         val horses = checkers.filter { ch -> ch.piece.uppercaseChar() == 'N' }
         val forward = if (attackerRed) 1 else -1
@@ -583,7 +583,7 @@ object Tactics {
     }
 
     /** 侧面虎：马在将侧翼近身将军（虎形） */
-    private fun isSideTiger(board: Xiangqi.Board, king: Xiangqi.Pos, attackerRed: Boolean, checkers: List<Xiangqi.Attacker>): Boolean {
+    private fun isSideTiger(board: Board, king: Xiangqi.Pos, attackerRed: Boolean, checkers: List<Xiangqi.Attacker>): Boolean {
         val horses = checkers.filter { ch -> ch.piece.uppercaseChar() == 'N' }
         for (ch in horses) {
             if (abs(ch.r - king.r) == 2 && abs(ch.c - king.c) == 1) {
@@ -596,7 +596,7 @@ object Tactics {
     }
 
     /** 重炮：两炮同线，一炮作架或重叠将军 */
-    private fun isHeavyCannon(board: Xiangqi.Board, king: Xiangqi.Pos, attackerRed: Boolean, checkers: List<Xiangqi.Attacker>): Boolean {
+    private fun isHeavyCannon(board: Board, king: Xiangqi.Pos, attackerRed: Boolean, checkers: List<Xiangqi.Attacker>): Boolean {
         val cannons = mutableListOf<Xiangqi.Pos>()
         for (r in 0 until 10) {
             for (c in 0 until 9) {
@@ -622,7 +622,7 @@ object Tactics {
     }
 
     /** 沉底炮将军 */
-    private fun isBottomCannon(board: Xiangqi.Board, king: Xiangqi.Pos, attackerRed: Boolean, checkers: List<Xiangqi.Attacker>): Boolean {
+    private fun isBottomCannon(board: Board, king: Xiangqi.Pos, attackerRed: Boolean, checkers: List<Xiangqi.Attacker>): Boolean {
         val back = if (attackerRed) 0 else 9
         return checkers.any { ch ->
             ch.piece.uppercaseChar() == 'C' && ch.r == back
@@ -630,7 +630,7 @@ object Tactics {
     }
 
     /** 双车错：双车将军，或一车将军且另一车控将的另一条逃线 */
-    private fun isDoubleRook(board: Xiangqi.Board, king: Xiangqi.Pos, attackerRed: Boolean, checkers: List<Xiangqi.Attacker>): Boolean {
+    private fun isDoubleRook(board: Board, king: Xiangqi.Pos, attackerRed: Boolean, checkers: List<Xiangqi.Attacker>): Boolean {
         val rookCheckers = checkers.filter { ch -> ch.piece.uppercaseChar() == 'R' }
         if (rookCheckers.size >= 2) return true
         if (rookCheckers.size != 1) return false
@@ -651,7 +651,7 @@ object Tactics {
         return false
     }
 
-    private fun piecesBetween(board: Xiangqi.Board, r1: Int, c1: Int, r2: Int, c2: Int): List<Xiangqi.Pos> {
+    private fun piecesBetween(board: Board, r1: Int, c1: Int, r2: Int, c2: Int): List<Xiangqi.Pos> {
         val list = mutableListOf<Xiangqi.Pos>()
         if (r1 == r2) {
             val cMin = minOf(c1, c2)

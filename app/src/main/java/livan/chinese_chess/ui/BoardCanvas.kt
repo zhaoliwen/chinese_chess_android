@@ -4,6 +4,11 @@ import android.graphics.Paint
 import android.graphics.Typeface
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Easing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -23,6 +28,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import livan.chinese_chess.engine.Board
 import livan.chinese_chess.engine.Xiangqi
 import kotlin.math.hypot
 import kotlin.math.roundToInt
@@ -47,6 +53,8 @@ private val LastMoveFill = Color(0x47D4A017) // rgba(212,160,23,0.28)
 private val SelectStroke = Color(0xFFD4A017)
 private val TargetEnemy = Color(0xBFB91C1C) // rgba(185,28,28,0.75)
 private val TargetDot = Color(0x73287828) // rgba(40,120,40,0.45)
+/** 教练建议着法闪烁绿色 */
+private val CoachHintGreen = Color(0xFF35B535)
 private val PieceShadow = Color(0x38000000) // rgba(0,0,0,0.22)
 private val PieceLight = Color(0xFFFFF8E7)
 private val PieceDark = Color(0xFFE8D5B0)
@@ -68,11 +76,12 @@ private val MARKS = listOf(
  */
 @Composable
 fun BoardCanvas(
-    board: Xiangqi.Board,
+    board: Board,
     selected: Xiangqi.Pos?,
     legalTargets: List<Xiangqi.Move>,
     lastMove: Xiangqi.Move?,
     anim: MoveAnim?,
+    coachHint: Xiangqi.Move? = null,
     interactive: Boolean,
     onTap: (r: Int, c: Int) -> Unit,
     modifier: Modifier = Modifier,
@@ -87,6 +96,18 @@ fun BoardCanvas(
             progress.animateTo(1f, tween(GameViewModel.MOVE_ANIM_MS.toInt(), easing = EaseOutQuad))
         }
     }
+
+    // 教练建议着法闪烁透明度
+    val blink = rememberInfiniteTransition(label = "coachHint")
+    val hintAlpha by blink.animateFloat(
+        initialValue = 0.25f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(500, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "alpha",
+    )
 
     // 棋子汉字 / 河界文字画笔（serif 粗体，楷体回退）
     val piecePaint = remember {
@@ -141,6 +162,7 @@ fun BoardCanvas(
         drawWoodBackground(k)
         drawGrid(l, k, riverPaint)
         drawHighlights(l, k, board, selected, legalTargets, lastMove)
+        drawCoachHint(l, k, board, coachHint, hintAlpha)
         drawPieces(l, k, board, anim, progress.value, piecePaint)
     }
 }
@@ -236,7 +258,7 @@ private fun DrawScope.drawGrid(l: BoardLayout, k: Float, riverPaint: Paint) {
 private fun DrawScope.drawHighlights(
     l: BoardLayout,
     k: Float,
-    board: Xiangqi.Board,
+    board: Board,
     selected: Xiangqi.Pos?,
     legalTargets: List<Xiangqi.Move>,
     lastMove: Xiangqi.Move?,
@@ -272,11 +294,47 @@ private fun DrawScope.drawHighlights(
     }
 }
 
+/**
+ * 教练建议着法闪烁指示（相对玩家走子前局面的坐标）：
+ * 起点有红子则画绿圈；终点空位绿点、有子绿圈。
+ */
+private fun DrawScope.drawCoachHint(
+    l: BoardLayout,
+    k: Float,
+    board: Board,
+    hint: Xiangqi.Move?,
+    alpha: Float,
+) {
+    if (hint == null) return
+    val cell = l.cell
+    val pr = l.pieceRadius
+    val color = CoachHintGreen.copy(alpha = alpha)
+
+    // 起点：仅当仍有红子时画圈（建议着通常是另一枚棋）
+    val fromPiece = board[hint.fr][hint.fc]
+    if (fromPiece != Xiangqi.EMPTY && Xiangqi.isRed(fromPiece)) {
+        drawCircle(
+            color,
+            radius = pr + 3f * k,
+            center = Offset(l.marginX + hint.fc * cell, l.marginY + hint.fr * cell),
+            style = Stroke(width = 3f * k),
+        )
+    }
+
+    val tx = l.marginX + hint.tc * cell
+    val ty = l.marginY + hint.tr * cell
+    if (board[hint.tr][hint.tc] != Xiangqi.EMPTY) {
+        drawCircle(color, radius = pr + 2f * k, center = Offset(tx, ty), style = Stroke(width = 2.5f * k))
+    } else {
+        drawCircle(color, radius = 8f * k, center = Offset(tx, ty))
+    }
+}
+
 /** 棋子与走子动画（board.js drawPieces） */
 private fun DrawScope.drawPieces(
     l: BoardLayout,
     k: Float,
-    board: Xiangqi.Board,
+    board: Board,
     anim: MoveAnim?,
     animT: Float,
     piecePaint: Paint,

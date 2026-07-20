@@ -8,6 +8,10 @@ package livan.chinese_chess.engine
  *
  * 移植自参考项目 js/rules.js。
  */
+
+/** 棋盘：10×9，值为棋子字符或 EMPTY（包级别名，避免 object 内嵌套 typealias） */
+typealias Board = Array<CharArray>
+
 object Xiangqi {
     const val ROWS = 10
     const val COLS = 9
@@ -28,9 +32,6 @@ object Xiangqi {
     data class Pos(val r: Int, val c: Int)
 
     data class Attacker(val r: Int, val c: Int, val piece: Char)
-
-    /** 棋盘：10×9，值为棋子字符或 [EMPTY] */
-    typealias Board = Array<CharArray>
 
     /** 初始局面 */
     fun createInitialBoard(): Board = arrayOf(

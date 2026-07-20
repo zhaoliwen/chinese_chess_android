@@ -141,7 +141,7 @@ object XiangqiAI {
     }
 
     /** 评估：正分利于红方 */
-    fun evaluate(board: Xiangqi.Board): Int {
+    fun evaluate(board: Board): Int {
         var score = 0
         for (r in 0 until Xiangqi.ROWS) {
             for (c in 0 until Xiangqi.COLS) {
@@ -159,7 +159,7 @@ object XiangqiAI {
     }
 
     /** MVV-LVA 走法排序键：被吃子价值×10 − 走子价值/100 */
-    private fun moveOrderKey(board: Xiangqi.Board, m: Xiangqi.Move): Int {
+    private fun moveOrderKey(board: Board, m: Xiangqi.Move): Int {
         val captured = board[m.tr][m.tc]
         var key = 0
         if (captured != Xiangqi.EMPTY) key += pieceValue(captured) * 10
@@ -169,7 +169,7 @@ object XiangqiAI {
     }
 
     private fun negamax(
-        board: Xiangqi.Board,
+        board: Board,
         depth: Int,
         alpha0: Int,
         beta: Int,
@@ -214,7 +214,7 @@ object XiangqiAI {
      * 为黑方（电脑）选着
      * @param level beginner|novice|master
      */
-    fun chooseMove(board: Xiangqi.Board, level: String): Xiangqi.Move? {
+    fun chooseMove(board: Board, level: String): Xiangqi.Move? {
         val cfg = DIFFICULTY[level] ?: DIFFICULTY.getValue("novice")
         val moves = Xiangqi.generateLegalMoves(board, false)
         if (moves.isEmpty()) return null
@@ -241,7 +241,7 @@ object XiangqiAI {
      * 分析红方（玩家）着法：返回最佳着、玩家着评分等
      * score 均为红方视角（越大越好）
      */
-    fun analyzeRedMove(boardBefore: Xiangqi.Board, playerMove: Xiangqi.Move, depth: Int = 4): RedAnalysis {
+    fun analyzeRedMove(boardBefore: Board, playerMove: Xiangqi.Move, depth: Int = 4): RedAnalysis {
         val d = if (depth > 0) depth else DIFFICULTY.getValue("master").depth
         val moves = Xiangqi.generateLegalMoves(boardBefore, true)
         if (moves.isEmpty()) return RedAnalysis(null, 0, 0, 0, emptyList())
@@ -277,7 +277,7 @@ object XiangqiAI {
      * 分析黑方着法（用于解释对方为何能吃子）
      * score 均为黑方视角（越大对黑越好）
      */
-    fun analyzeBlackMove(boardBefore: Xiangqi.Board, blackMove: Xiangqi.Move, depth: Int = 4): RedAnalysis {
+    fun analyzeBlackMove(boardBefore: Board, blackMove: Xiangqi.Move, depth: Int = 4): RedAnalysis {
         val d = if (depth > 0) depth else DIFFICULTY.getValue("master").depth
         val moves = Xiangqi.generateLegalMoves(boardBefore, false)
         if (moves.isEmpty()) return RedAnalysis(null, 0, 0, 0, emptyList())

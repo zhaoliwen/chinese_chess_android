@@ -15,6 +15,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import livan.chinese_chess.coach.Coach
+import livan.chinese_chess.engine.Board
 import livan.chinese_chess.engine.Tactics
 import livan.chinese_chess.engine.Xiangqi
 import livan.chinese_chess.engine.XiangqiAI
@@ -39,7 +40,7 @@ data class CoachMessage(
 )
 
 private data class HistoryEntry(
-    val board: Xiangqi.Board,
+    val board: Board,
     val redToMove: Boolean,
     val lastMove: Xiangqi.Move?,
     val moveCount: Int,
@@ -47,7 +48,7 @@ private data class HistoryEntry(
 
 /** 供失子点评：玩家上一步的局面与着法（main.js lastPlayerCtx） */
 private data class PlayerCtx(
-    val boardBefore: Xiangqi.Board,
+    val boardBefore: Board,
     val move: Xiangqi.Move,
     val piece: Char,
 )
@@ -96,6 +97,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     var message by mutableStateOf("")
         private set
     var anim by mutableStateOf<MoveAnim?>(null)
+        private set
+    /** 教练建议着法提示（相对玩家走子前局面）；下次走子/悔棋/新局/关训练时清除 */
+    var coachHint by mutableStateOf<Xiangqi.Move?>(null)
         private set
     var historySize by mutableIntStateOf(0)
         private set
@@ -164,6 +168,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         lastMove = move
         moveCount += 1
         selected = null
+        // 仅玩家再走时清提示；AI 回应对局后仍保留，方便对照「建议走」坐标
+        if (fromPlayer) coachHint = null
         redToMove = !redToMove
 
         val ctx = Tactics.TacticContext(
@@ -192,7 +198,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private suspend fun afterMove(
         ctx: Tactics.TacticContext,
         fromPlayer: Boolean,
-        boardBefore: Xiangqi.Board,
+        boardBefore: Board,
         move: Xiangqi.Move,
         captured: Char,
     ) {
@@ -317,7 +323,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         coachMessages.add(CoachMessage(++bubbleId, role, review.title, review.lines, timeNow()))
     }
 
-    private fun runCoachAfterPlayer(boardBefore: Xiangqi.Board, move: Xiangqi.Move) {
+    private fun runCoachAfterPlayer(boardBefore: Board, move: Xiangqi.Move) {
         if (!trainMode) return
         viewModelScope.launch {
             coachMutex.withLock {
@@ -326,13 +332,16 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     Coach.reviewPlayerMove(boardBefore, move)
                 }
                 removeBubble(tipId)
-                if (review != null) appendReview(review)
+                if (review != null) {
+                    appendReview(review)
+                    if (trainMode) coachHint = review.suggestedMove
+                }
             }
         }
     }
 
     private fun runCoachAfterCapture(
-        boardBeforeBlack: Xiangqi.Board,
+        boardBeforeBlack: Board,
         blackMove: Xiangqi.Move,
         captured: Char,
     ) {
@@ -368,6 +377,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         redToMove = true
         gameOver = false
         selected = null
+        coachHint = null
         history.clear()
         historySize = 0
         lastMove = null
@@ -402,6 +412,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         lastMove = s.lastMove
         moveCount = s.moveCount
         selected = null
+        coachHint = null
         gameOver = false
         anim = null
         message = "已悔棋"
@@ -427,6 +438,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 "训练模式已开启。大师教练会审视你的每一步；走软或失子时会在此说明原因与更好的走法。",
             )
             voice.speak("训练模式开启")
+        } else {
+            coachHint = null
         }
     }
 

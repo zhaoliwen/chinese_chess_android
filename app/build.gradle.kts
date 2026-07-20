@@ -39,12 +39,6 @@ android {
     buildFeatures {
         compose = true
     }
-    kotlin {
-        compilerOptions {
-            // Rules.kt 的 object 内 typealias 需要该实验特性
-            freeCompilerArgs.add("-Xnested-type-aliases")
-        }
-    }
 }
 
 dependencies {

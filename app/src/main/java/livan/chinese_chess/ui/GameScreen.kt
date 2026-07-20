@@ -119,6 +119,7 @@ fun GameScreen(vm: GameViewModel = viewModel()) {
                         legalTargets = targets,
                         lastMove = vm.lastMove,
                         anim = vm.anim,
+                        coachHint = vm.coachHint,
                         interactive = !vm.gameOver && !vm.aiThinking && vm.redToMove,
                         onTap = vm::onUserClick,
                         modifier = Modifier.aspectRatio(9f / 10f),

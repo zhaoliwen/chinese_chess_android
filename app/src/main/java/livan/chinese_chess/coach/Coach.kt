@@ -1,5 +1,6 @@
 package livan.chinese_chess.coach
 
+import livan.chinese_chess.engine.Board
 import livan.chinese_chess.engine.Xiangqi
 import livan.chinese_chess.engine.XiangqiAI
 
@@ -21,6 +22,8 @@ object Coach {
         val title: String,
         val lines: List<String>,
         val gap: Int,
+        /** 建议着法（相对玩家走子前的局面），供棋盘闪烁指示；无则 null */
+        val suggestedMove: Xiangqi.Move? = null,
     )
 
     /** 失根子信息 */
@@ -38,7 +41,7 @@ object Coach {
         if (p == Xiangqi.EMPTY) "" else Xiangqi.PIECE_NAME[p] ?: p.toString()
 
     /** 着法中文描述 */
-    private fun describeMoveOrNull(board: Xiangqi.Board, move: Xiangqi.Move?): String {
+    private fun describeMoveOrNull(board: Board, move: Xiangqi.Move?): String {
         if (move == null) return "未知着法"
         val p = board[move.fr][move.fc]
         val name = pieceName(p)
@@ -54,11 +57,11 @@ object Coach {
     }
 
     /** 着法中文描述（公开 API） */
-    fun describeMove(board: Xiangqi.Board, move: Xiangqi.Move): String =
+    fun describeMove(board: Board, move: Xiangqi.Move): String =
         describeMoveOrNull(board, move)
 
     /** 红方无保护且被黑攻击的棋子 */
-    private fun findHangingRed(board: Xiangqi.Board): List<HungPiece> {
+    private fun findHangingRed(board: Board): List<HungPiece> {
         val hung = mutableListOf<HungPiece>()
         for (r in 0 until Xiangqi.ROWS) {
             for (c in 0 until Xiangqi.COLS) {
@@ -80,7 +83,7 @@ object Coach {
     }
 
     /** 是否漏吃：存在可白吃的黑子 */
-    private fun findFreeCaptures(board: Xiangqi.Board, redToMove: Boolean): List<FreeCapture> {
+    private fun findFreeCaptures(board: Board, redToMove: Boolean): List<FreeCapture> {
         val moves = Xiangqi.generateLegalMoves(board, redToMove)
         val frees = mutableListOf<FreeCapture>()
         for (m in moves) {
@@ -98,7 +101,7 @@ object Coach {
     }
 
     private fun buildPlayerReview(
-        boardBefore: Xiangqi.Board,
+        boardBefore: Board,
         playerMove: Xiangqi.Move,
         analysis: XiangqiAI.RedAnalysis,
     ): Review {
@@ -210,13 +213,15 @@ object Coach {
                 "这样走的原因：${whyBest.joinToString("")}",
             ),
             gap = gap,
+            // 相对玩家走子前的局面；棋盘用坐标闪烁指示建议着法
+            suggestedMove = analysis.best,
         )
     }
 
     private fun buildCaptureReview(
-        boardBeforePlayer: Xiangqi.Board?,
+        boardBeforePlayer: Board?,
         playerMove: Xiangqi.Move?,
-        boardBeforeBlack: Xiangqi.Board,
+        boardBeforeBlack: Board,
         blackMove: Xiangqi.Move,
         captured: Char,
     ): Review {
@@ -279,7 +284,7 @@ object Coach {
      * 点评玩家着法；仅在走得不好时返回文案，否则返回 null。
      * JS 用 setTimeout 模拟异步，这里直接同步返回，调用方负责放到后台线程。
      */
-    fun reviewPlayerMove(boardBefore: Xiangqi.Board, playerMove: Xiangqi.Move): Review? {
+    fun reviewPlayerMove(boardBefore: Board, playerMove: Xiangqi.Move): Review? {
         return try {
             val analysis = XiangqiAI.analyzeRedMove(boardBefore, playerMove, COACH_DEPTH)
             // 着法质量尚可：不刷屏
@@ -299,9 +304,9 @@ object Coach {
      * 对方吃子后的点评
      */
     fun reviewCapture(
-        boardBeforePlayer: Xiangqi.Board,
+        boardBeforePlayer: Board,
         playerMove: Xiangqi.Move,
-        boardBeforeBlack: Xiangqi.Board,
+        boardBeforeBlack: Board,
         blackMove: Xiangqi.Move,
         captured: Char,
     ): Review? {
