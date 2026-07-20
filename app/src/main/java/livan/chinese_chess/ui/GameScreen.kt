@@ -65,7 +65,7 @@ fun GameScreen(vm: GameViewModel = viewModel()) {
         modifier = Modifier
             .fillMaxSize()
             .background(Brush.linearGradient(listOf(BgDeep, BgDeepEnd)))
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = 10.dp, vertical = 6.dp),
     ) {
         // 顶部标题
         Text(
@@ -73,24 +73,24 @@ fun GameScreen(vm: GameViewModel = viewModel()) {
             color = AccentGold,
             fontFamily = FontFamily.Serif,
             fontWeight = FontWeight.Bold,
-            fontSize = 22.sp,
+            fontSize = 20.sp,
             letterSpacing = 6.sp,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 8.dp),
+                .padding(bottom = 4.dp),
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
         )
         Row(
             modifier = Modifier.fillMaxSize(),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             ControlPanel(
                 vm = vm,
                 modifier = Modifier
-                    .width(220.dp)
+                    .width(200.dp)
                     .fillMaxHeight(),
             )
-            // 中央棋盘，保持 9:10 宽高比
+            // 中央棋盘：外框包在 Canvas 外（padding 让出边框宽度），避免遮挡边缘棋子
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -107,26 +107,30 @@ fun GameScreen(vm: GameViewModel = viewModel()) {
                         }
                     }
                 }
-                BoardCanvas(
-                    board = vm.board,
-                    selected = vm.selected,
-                    legalTargets = targets,
-                    lastMove = vm.lastMove,
-                    anim = vm.anim,
-                    interactive = !vm.gameOver && !vm.aiThinking && vm.redToMove,
-                    onTap = vm::onUserClick,
+                Box(
                     modifier = Modifier
-                        .aspectRatio(9f / 10f)
                         .border(6.dp, Color(0xFF8B6914))
-                        .border(3.dp, Color(0xFF5C4033)),
-                )
+                        .border(3.dp, Color(0xFF5C4033))
+                        .padding(9.dp),
+                ) {
+                    BoardCanvas(
+                        board = vm.board,
+                        selected = vm.selected,
+                        legalTargets = targets,
+                        lastMove = vm.lastMove,
+                        anim = vm.anim,
+                        interactive = !vm.gameOver && !vm.aiThinking && vm.redToMove,
+                        onTap = vm::onUserClick,
+                        modifier = Modifier.aspectRatio(9f / 10f),
+                    )
+                }
             }
             // 右侧教练面板（训练模式开启时显示）
             if (vm.trainMode) {
                 CoachPanel(
                     messages = vm.coachMessages,
                     modifier = Modifier
-                        .width(300.dp)
+                        .width(280.dp)
                         .fillMaxHeight(),
                 )
             }

@@ -106,8 +106,9 @@ fun BoardCanvas(
     Canvas(
         modifier = modifier
             .onSizeChanged { sz ->
-                // board.js resizeLayout：cell 取横向/纵向较小者后居中
-                val cell = minOf((sz.width - 56f) / 8f, (sz.height - 56f) / 9f)
+                // cell 取横向/纵向较小者后居中；边距 = cell/2，大于棋子半径(0.42cell)，
+                // 保证边缘棋子完整显示在棋盘内
+                val cell = minOf(sz.width / 9f, sz.height / 10f)
                 layout = BoardLayout(
                     cell = cell,
                     marginX = (sz.width - cell * 8f) / 2f,
