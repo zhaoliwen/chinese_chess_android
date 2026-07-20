@@ -125,6 +125,19 @@ fun GameScreen(vm: GameViewModel = viewModel()) {
                         modifier = Modifier.aspectRatio(9f / 10f),
                     )
                 }
+                // 胜负条贴在棋盘上方，不挡下方红方残局；可关闭后完整查看
+                val result = vm.gameResult
+                if (vm.showResultUi && result != null) {
+                    GameResultBar(
+                        result = result,
+                        onDismiss = vm::dismissResultUi,
+                        onNewGame = { vm.newGame(playSound = true) },
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .padding(top = 8.dp)
+                            .fillMaxWidth(0.92f),
+                    )
+                }
             }
             // 右侧教练面板（训练模式开启时显示）
             if (vm.trainMode) {
@@ -211,7 +224,13 @@ private fun ControlPanel(vm: GameViewModel, modifier: Modifier = Modifier) {
         }
 
         // 状态框
+        val result = vm.gameResult
         val (turnText, turnColor) = when {
+            result != null -> when (result.kind) {
+                GameResultKind.WIN -> "你赢了" to Color(0xFF3CB371)
+                GameResultKind.LOSE -> "你输了" to TurnRed
+                GameResultKind.DRAW -> "和棋" to AccentGold
+            }
             vm.gameOver -> "对局结束" to AccentGold
             vm.aiThinking -> "电脑思考中…" to TextMuted
             vm.redToMove -> "红方行棋" to TurnRed
@@ -259,6 +278,10 @@ private fun ControlPanel(vm: GameViewModel, modifier: Modifier = Modifier) {
                 text = if (vm.soundOn) "音效：开" else "音效：关",
                 onClick = vm::toggleSound,
             )
+            // 终局后若关掉了结果条，可再打开对照残局
+            if (vm.gameOver && vm.gameResult != null && !vm.showResultUi) {
+                PanelButton(text = "查看结果", onClick = { vm.showResultUiAgain() })
+            }
         }
 
         // 操作说明
@@ -302,5 +325,93 @@ private fun PanelButton(
         ),
     ) {
         Text(text, fontSize = 15.sp)
+    }
+}
+
+/**
+ * 终局结果条：贴在棋盘上方空隙，不盖满棋面。
+ * 「查看残局」只关条，残局仍留在棋盘上。
+ */
+@Composable
+private fun GameResultBar(
+    result: GameResult,
+    onDismiss: () -> Unit,
+    onNewGame: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val (title, accent) = when (result.kind) {
+        GameResultKind.WIN -> "胜利" to Color(0xFF3CB371)
+        GameResultKind.LOSE -> "失败" to TurnRed
+        GameResultKind.DRAW -> "和棋" to AccentGold
+    }
+    val subtitle = when (result.kind) {
+        GameResultKind.WIN -> "【${result.label}】恭喜将死电脑"
+        GameResultKind.LOSE -> "【${result.label}】你被将死了，可对照棋盘复盘"
+        GameResultKind.DRAW -> "【${result.label}】本局战平"
+    }
+
+    Column(
+        modifier = modifier
+            .background(
+                Brush.verticalGradient(listOf(Color(0xF0322518), Color(0xF01A1410))),
+                RoundedCornerShape(6.dp),
+            )
+            .border(1.dp, accent.copy(alpha = 0.65f), RoundedCornerShape(6.dp))
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier
+                    .width(3.dp)
+                    .height(36.dp)
+                    .background(accent, RoundedCornerShape(2.dp)),
+            )
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    color = accent,
+                    fontFamily = FontFamily.Serif,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 22.sp,
+                )
+                Text(
+                    text = subtitle,
+                    color = TextMuted,
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp,
+                )
+            }
+        }
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            OutlinedButton(
+                onClick = onDismiss,
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(3.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, PanelBorder),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    containerColor = BgDeep,
+                    contentColor = TextCream,
+                ),
+            ) {
+                Text("查看残局", fontSize = 14.sp)
+            }
+            OutlinedButton(
+                onClick = onNewGame,
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(3.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, BtnBorder),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    containerColor = BtnBottom,
+                    contentColor = TextCream,
+                ),
+            ) {
+                Text("再来一局", fontSize = 14.sp)
+            }
+        }
     }
 }

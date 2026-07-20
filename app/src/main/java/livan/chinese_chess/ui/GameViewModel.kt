@@ -28,6 +28,15 @@ import java.util.Locale
 /** 走子动画（220ms easeOut，与 board.js 一致） */
 data class MoveAnim(val move: Xiangqi.Move, val piece: Char)
 
+/** 终局结果（相对玩家执红） */
+enum class GameResultKind { WIN, LOSE, DRAW }
+
+data class GameResult(
+    val kind: GameResultKind,
+    /** 杀法/结局标签，如「铁门栓」「困毙」 */
+    val label: String,
+)
+
 /** 教练气泡类型，对应 coachChat.js 的 role */
 enum class BubbleRole { COACH, WARN, GOOD, SYSTEM, THINKING }
 
@@ -79,6 +88,12 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     var redToMove by mutableStateOf(true)
         private set
     var gameOver by mutableStateOf(false)
+        private set
+    /** 终局结果；新局/悔棋清除；关掉结果条后仍保留，左侧状态可继续显示胜负 */
+    var gameResult by mutableStateOf<GameResult?>(null)
+        private set
+    /** 是否显示棋盘旁的胜负条（可关，关了仍能看残局） */
+    var showResultUi by mutableStateOf(false)
         private set
     var selected by mutableStateOf<Xiangqi.Pos?>(null)
         private set
@@ -236,14 +251,22 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         if (tactic.isTerminal || Tactics.isMateId(tactic.id)) {
             gameOver = true
             if (tactic.id == "stalemate") {
+                gameResult = GameResult(GameResultKind.DRAW, tactic.label)
                 message = "【${tactic.label}】和棋"
                 Sfx.draw()
             } else {
-                val winner = if (red) "黑方" else "红方"
-                val tip = if (red) "你被将死了" else "恭喜，你将死了电脑"
+                // redToMove 为被将死一方：红被将死则玩家负
+                val playerLost = red
+                gameResult = GameResult(
+                    kind = if (playerLost) GameResultKind.LOSE else GameResultKind.WIN,
+                    label = tactic.label,
+                )
+                val winner = if (playerLost) "黑方" else "红方"
+                val tip = if (playerLost) "你被将死了" else "恭喜，你将死了电脑"
                 message = "【${tactic.label}】${winner}胜！${tip}"
-                if (red) Sfx.lose() else Sfx.win()
+                if (playerLost) Sfx.lose() else Sfx.win()
             }
+            showResultUi = true
             voice.speak(tactic.voice, force = true)
             return true
         }
@@ -376,6 +399,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         board = Xiangqi.createInitialBoard()
         redToMove = true
         gameOver = false
+        gameResult = null
+        showResultUi = false
         selected = null
         coachHint = null
         history.clear()
@@ -414,6 +439,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         selected = null
         coachHint = null
         gameOver = false
+        gameResult = null
+        showResultUi = false
         anim = null
         message = "已悔棋"
         Sfx.undo()
@@ -448,5 +475,15 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         if (!gameOver) {
             message = "已切换难度：${difficultyLabel(level)}（本局立即生效）"
         }
+    }
+
+    /** 关闭胜负条，棋盘残局仍保留可查看 */
+    fun dismissResultUi() {
+        showResultUi = false
+    }
+
+    /** 终局后再次打开胜负条 */
+    fun showResultUiAgain() {
+        if (gameResult != null) showResultUi = true
     }
 }
