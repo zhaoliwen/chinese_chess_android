@@ -13,3 +13,9 @@
 .externalNativeBuild
 .cxx
 local.properties
+# 签名别名与密码，仅本地使用
+keystore.env
+*.jks
+*.keystore
+**/release/
+/.idea

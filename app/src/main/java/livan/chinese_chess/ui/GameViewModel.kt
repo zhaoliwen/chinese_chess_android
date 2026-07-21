@@ -113,7 +113,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         private set
     var anim by mutableStateOf<MoveAnim?>(null)
         private set
-    /** 教练建议着法提示（相对玩家走子前局面）；下次走子/悔棋/新局/关训练时清除 */
+    /** 教练建议着法提示；走子/悔棋/新局/关训练时清除，AI 走子后由 runCoachNextMoveHint 重算 */
     var coachHint by mutableStateOf<Xiangqi.Move?>(null)
         private set
     var historySize by mutableIntStateOf(0)
@@ -183,8 +183,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         lastMove = move
         moveCount += 1
         selected = null
-        // 仅玩家再走时清提示；AI 回应对局后仍保留，方便对照「建议走」坐标
-        if (fromPlayer) coachHint = null
+        // 走子后旧提示相对的局面已不存在，一律清除；训练模式下 AI 走子后会给出新建议
+        coachHint = null
         redToMove = !redToMove
 
         val ctx = Tactics.TacticContext(
@@ -227,6 +227,10 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         if (ended) return
+        // 训练模式：对方走子后，给出当前局面的下一步建议（气泡 + 棋盘绿色闪烁指示）
+        if (!fromPlayer && trainMode && redToMove && !gameOver) {
+            runCoachNextMoveHint()
+        }
         val inCheck = Xiangqi.isInCheck(board, redToMove)
         if (!inCheck) {
             val hasBanner = message.startsWith("【")
@@ -392,6 +396,39 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /** 训练模式：对方走子后计算当前局面红方最佳着，给出下一步建议 */
+    private fun runCoachNextMoveHint() {
+        if (!trainMode) return
+        val gen = gameGen
+        val mc = moveCount
+        viewModelScope.launch {
+            coachMutex.withLock {
+                val snapshot = Xiangqi.cloneBoard(board)
+                val best = withContext(Dispatchers.Default) {
+                    // analyzeRedMove 需一个参照着法：传任意合法着即可，只取其 best（无随机）
+                    val moves = Xiangqi.generateLegalMoves(snapshot, true)
+                    if (moves.isEmpty()) {
+                        null
+                    } else {
+                        XiangqiAI.analyzeRedMove(snapshot, moves[0], Coach.COACH_DEPTH).best
+                    }
+                }
+                // 计算期间玩家已走子/悔棋/新局/关训练则丢弃
+                if (gen != gameGen || moveCount != mc || !trainMode || best == null) return@withLock
+                coachHint = best
+                coachMessages.add(
+                    CoachMessage(
+                        ++bubbleId,
+                        BubbleRole.COACH,
+                        "教练建议：下一步",
+                        listOf("建议走：${Coach.describeMove(snapshot, best)}"),
+                        timeNow(),
+                    ),
+                )
+            }
+        }
+    }
+
     // ---------- 控制 ----------
 
     fun newGame(playSound: Boolean) {
@@ -416,8 +453,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             Sfx.newGame()
             voice.speak("新局开始")
         }
+        // 棋局重新开始：无论训练模式开关，都清空上一局的教练气泡
+        coachMessages.clear()
         if (trainMode) {
-            coachMessages.clear()
             appendSystem("新局开始。我会盯着你的每一步，有问题随时说。")
         }
     }
@@ -460,10 +498,14 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     fun onTrainModeChange(on: Boolean) {
         trainMode = on
         if (on) {
-            coachMessages.clear()
-            appendSystem(
-                "训练模式已开启。大师教练会审视你的每一步；走软或失子时会在此说明原因与更好的走法。",
-            )
+            // 不清空历史气泡：同一局内关闭再开启时保留之前的点评，仅新局才重置
+            if (coachMessages.isEmpty()) {
+                appendSystem(
+                    "训练模式已开启。大师教练会点评你的每一步：好棋给予肯定，走软或失子时会说明原因与更好的走法。",
+                )
+            } else {
+                appendSystem("训练模式已开启，继续为你点评本局的每一步。")
+            }
             voice.speak("训练模式开启")
         } else {
             coachHint = null

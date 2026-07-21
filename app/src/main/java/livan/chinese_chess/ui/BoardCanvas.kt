@@ -295,7 +295,7 @@ private fun DrawScope.drawHighlights(
 }
 
 /**
- * 教练建议着法闪烁指示（相对玩家走子前局面的坐标）：
+ * 教练建议着法闪烁指示（相对当前局面的坐标）：
  * 起点有红子则画绿圈；终点空位绿点、有子绿圈。
  */
 private fun DrawScope.drawCoachHint(

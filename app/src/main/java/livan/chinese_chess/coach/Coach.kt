@@ -280,18 +280,58 @@ object Coach {
         )
     }
 
+    /** 好棋/稳健着法的简短肯定点评（每步都给，文案控制在两三行） */
+    private fun buildGoodReview(
+        boardBefore: Board,
+        playerMove: Xiangqi.Move,
+        analysis: XiangqiAI.RedAnalysis,
+    ): Review {
+        val playedDesc = describeMoveOrNull(boardBefore, playerMove)
+        val boardAfter = Xiangqi.applyMove(
+            boardBefore,
+            playerMove.fr,
+            playerMove.fc,
+            playerMove.tr,
+            playerMove.tc,
+        )
+        val isBest = XiangqiAI.sameMove(analysis.best, playerMove)
+        val lines = mutableListOf("你走了：$playedDesc")
+        if (isBest) {
+            lines.add("这正是当前局面的最佳着法，走得很准。")
+        } else {
+            lines.add("这步攻守稳健，与最佳着法相差无几。")
+        }
+        // 附加战术亮点
+        val cap = boardBefore[playerMove.tr][playerMove.tc]
+        if (cap != Xiangqi.EMPTY) {
+            lines.add("顺势吃掉对方${pieceName(cap)}，先捞到实惠。")
+        }
+        if (Xiangqi.isInCheck(boardAfter, false)) {
+            lines.add("这步将军，迫使对方应手，掌握主动。")
+        }
+        if (!isBest && analysis.best != null) {
+            lines.add("若想更进一步，也可考虑：${describeMoveOrNull(boardBefore, analysis.best)}。")
+        }
+        return Review(
+            type = "good",
+            title = if (isBest) "教练点评：好棋！" else "教练点评：走得不错",
+            lines = lines,
+            gap = analysis.gap,
+        )
+    }
+
     /**
-     * 点评玩家着法；仅在走得不好时返回文案，否则返回 null。
+     * 点评玩家着法：每一步都返回点评——好棋给予肯定（type="good"），
+     * 软棋给出原因与建议（type="bad_move"）；分析失败或无最佳着时返回 null。
      * JS 用 setTimeout 模拟异步，这里直接同步返回，调用方负责放到后台线程。
      */
     fun reviewPlayerMove(boardBefore: Board, playerMove: Xiangqi.Move): Review? {
         return try {
             val analysis = XiangqiAI.analyzeRedMove(boardBefore, playerMove, COACH_DEPTH)
-            // 着法质量尚可：不刷屏
-            if (XiangqiAI.sameMove(analysis.best, playerMove) || analysis.gap < BAD_GAP) {
+            if (analysis.best == null) {
                 null
-            } else if (analysis.best == null) {
-                null
+            } else if (XiangqiAI.sameMove(analysis.best, playerMove) || analysis.gap < BAD_GAP) {
+                buildGoodReview(boardBefore, playerMove, analysis)
             } else {
                 buildPlayerReview(boardBefore, playerMove, analysis)
             }
